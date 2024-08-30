@@ -42,10 +42,9 @@ export class UsuarioController {
     @Param('order', ParseFindAllOrderPipe) order: IFindAllOrder,
     @Query('filter', ParseFindAllFilterPipe)
     filter: IFindAllFilter | IFindAllFilter[],
-  ): Promise<IResponse<Usuario[]>> {
-    const data = await this.usuarioService.findAll(page, size, order, filter);
-
-    return new HttpResponse<Usuario[]>(data);
+  ): Promise<HttpResponse<Usuario[]>> {
+    const {data, count} = await this.usuarioService.findAll(page, size, order, filter);
+    return new HttpResponse<Usuario[]>(data, undefined ,count);
   }
 
   @Get(':id')

@@ -12,6 +12,7 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UsuarioPermissao } from './entities/usuario-permissao.entity';
 import { Usuario } from './entities/usuario.entity';
+import { IResponse } from 'src/shared/interfaces/response.interface';
 
 @Injectable()
 export class UsuarioService {
@@ -50,18 +51,19 @@ export class UsuarioService {
     size: number,
     order: IFindAllOrder,
     filter?: IFindAllFilter | IFindAllFilter[],
-  ): Promise<Usuario[]> {
-    page--;
+  ): Promise<IResponse<Usuario[]>> {
 
     const where = handleFilter(filter);
 
-    return await this.repository.find({
+    const [data, count] = await this.repository.findAndCount({
       loadEagerRelations: false,
       order: { [order.column]: order.sort },
       where,
       skip: size * page,
       take: size,
     });
+
+    return { data, count, message: null };
   }
 
   async findOne(id: number): Promise<Usuario> {

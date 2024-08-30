@@ -2,8 +2,8 @@
 
 echo "Container started"
 
-npm install
+#npm install --legacy-peer-deps
 
-npm run migration:run
+#npm run migration:run
 
 npm run start:debug
