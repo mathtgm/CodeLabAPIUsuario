@@ -18,7 +18,7 @@ export class UsuarioPermissao {
   @Column({ nullable: false })
   modulo: number;
 
-  @ManyToOne(() => Usuario, (usuario) => usuario.id)
+  @ManyToOne(() => Usuario, (usuario) => usuario.id, {onDelete: 'CASCADE'})
   @JoinColumn({
     name: 'idUsuario',
     foreignKeyConstraintName: 'fk_permissao_usuario',
