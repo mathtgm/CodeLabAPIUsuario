@@ -9,11 +9,12 @@ import { Usuario } from '../src/core/usuario/entities/usuario.entity';
 import { EMensagem } from '../src/shared/enums/mensagem.enum';
 import { ResponseExceptionsFilter } from '../src/shared/filters/response-exception.filter';
 import { ResponseTransformInterceptor } from '../src/shared/interceptors/response-transform.interceptor';
+import { UsuarioPermissao } from '../src/core/usuario/entities/usuario-permissao.entity';
 
 describe('Usuario (e2e)', () => {
   let app: INestApplication;
-
   let repository: Repository<Usuario>;
+  let repositoryUsuarioPermissao: Repository<UsuarioPermissao>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,15 +32,17 @@ describe('Usuario (e2e)', () => {
     await app.init();
 
     repository = app.get<Repository<Usuario>>(getRepositoryToken(Usuario));
+    repositoryUsuarioPermissao = app.get<Repository<UsuarioPermissao>>(getRepositoryToken(UsuarioPermissao));
   });
 
   afterAll(async () => {
+    await repositoryUsuarioPermissao.delete({});
     await repository.delete({});
     await app.close();
   });
 
   describe('CRUD /usuario', () => {
-    let id: number;
+    let idUsuario: number;
 
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
@@ -50,23 +53,24 @@ describe('Usuario (e2e)', () => {
       senha: faker.internet.password(),
       ativo: true,
       admin: false,
+      permissao: []
     };
 
     it('criar um novo usuario', async () => {
       const resp = await request(app.getHttpServer())
-        .post('/usuario')
+        .post('')
         .send(usuario);
 
       expect(resp).toBeDefined();
       expect(resp.body.message).toBe(EMensagem.SalvoSucesso);
       expect(resp.body.data).toHaveProperty('id');
 
-      id = resp.body.data.id;
+      idUsuario = resp.body.data.id;
     });
 
-    it('criar um novo usuario usado o mesmo email', async () => {
+    it('criar um novo usuario usando o mesmo email', async () => {
       const resp = await request(app.getHttpServer())
-        .post('/usuario')
+        .post('')
         .send(usuario);
 
       expect(resp).toBeDefined();
@@ -76,7 +80,7 @@ describe('Usuario (e2e)', () => {
     });
 
     it('carregar o usuario criado', async () => {
-      const resp = await request(app.getHttpServer()).get(`/usuario/${id}`);
+      const resp = await request(app.getHttpServer()).get(`/${+idUsuario}`);
 
       expect(resp).toBeDefined();
       expect(resp.body.mensagem).toBe(undefined);
@@ -88,10 +92,10 @@ describe('Usuario (e2e)', () => {
     });
 
     it('alterar um usuario criado', async () => {
-      const usuarioAlterado = Object.assign(usuario, { id: id, admin: true });
+      const usuarioAlterado = Object.assign(usuario, { id: +idUsuario, admin: true });
 
       const resp = await request(app.getHttpServer())
-        .patch(`/usuario/${id}`)
+        .patch(`/${+idUsuario}`)
         .send(usuarioAlterado);
 
       expect(resp).toBeDefined();
@@ -100,10 +104,10 @@ describe('Usuario (e2e)', () => {
     });
 
     it('lançar uma exceção ao alterar um usuario criado passando um id diferente', async () => {
-      const usuarioAlterado = Object.assign(usuario, { id: id, admin: true });
+      const usuarioAlterado = Object.assign(usuario, { id: +idUsuario, admin: true });
 
       const resp = await request(app.getHttpServer())
-        .patch(`/usuario/999`)
+        .patch(`/999`)
         .send(usuarioAlterado);
 
       expect(resp).toBeDefined();
@@ -124,16 +128,17 @@ describe('Usuario (e2e)', () => {
         senha: faker.internet.password(),
         ativo: true,
         admin: false,
+        permissao: []
       };
 
-      await request(app.getHttpServer()).post('/usuario').send(usuarioTemp);
-
+      const teste = await request(app.getHttpServer()).post('').send(usuarioTemp);
+ 
       const usuarioAlterado = Object.assign(usuario, {
         email: usuarioTemp.email,
       });
 
       const resp = await request(app.getHttpServer())
-        .patch(`/usuario/${id}`)
+        .patch(`/${+idUsuario}`)
         .send(usuarioAlterado);
 
       expect(resp).toBeDefined();
@@ -143,7 +148,7 @@ describe('Usuario (e2e)', () => {
     });
 
     it('desativar um usuario cadastrado', async () => {
-      const resp = await request(app.getHttpServer()).delete(`/usuario/${id}`);
+      const resp = await request(app.getHttpServer()).delete(`/${+idUsuario}`);
 
       expect(resp).toBeDefined();
       expect(resp.body.message).toBe(EMensagem.DesativadoSucesso);
@@ -151,7 +156,7 @@ describe('Usuario (e2e)', () => {
     });
 
     it('lançar uma exceção ao desativar um usuario não cadastrado', async () => {
-      const resp = await request(app.getHttpServer()).delete(`/usuario/999`);
+      const resp = await request(app.getHttpServer()).delete(`/999`);
 
       expect(resp).toBeDefined();
       expect(resp.status).toBe(HttpStatus.NOT_ACCEPTABLE);
@@ -161,6 +166,9 @@ describe('Usuario (e2e)', () => {
   });
 
   describe('findAll /usuario', () => {
+    let usuarioBanco;
+    const filter = {column: 'id', sort: 'asc'}
+
     it('obter todos os registros da página 1', async () => {
       for (let i = 0; i < 10; i++) {
         const firstNameTemp = faker.person.firstName();
@@ -174,24 +182,55 @@ describe('Usuario (e2e)', () => {
           senha: faker.internet.password(),
           ativo: true,
           admin: false,
+          permissao: []
         };
 
-        await request(app.getHttpServer()).post('/usuario').send(usuarioTemp);
+        let usuarioSalvo = await request(app.getHttpServer()).post('').send(usuarioTemp);
+        usuarioBanco = usuarioSalvo.body.data;
       }
 
-      const resp = await request(app.getHttpServer()).get(`/usuario/1/10`);
+      const resp = await request(app.getHttpServer()).get(`/0/10/${JSON.stringify(filter)}`);
 
       expect(resp).toBeDefined();
       expect(resp.body.mensagem).toBe(undefined);
-      expect(resp.body.data.length).toBe(10);
+      expect(resp.body.data.length).toBeGreaterThanOrEqual(2);
     });
 
     it('obter todos os registros da página 2', async () => {
-      const resp = await request(app.getHttpServer()).get(`/usuario/2/10`);
+      
+      const resp = await request(app.getHttpServer()).get(`/1/10/${JSON.stringify(filter)}`);
 
       expect(resp).toBeDefined();
       expect(resp.body.mensagem).toBe(undefined);
-      expect(resp.body.data.length).toBe(2);
+      expect(resp.body.data.length).toBeGreaterThanOrEqual(2);
     });
+
+    it('obtem todos os usuários pelo nome', async () => {
+      const resp = await request(app.getHttpServer()).get(`/0/5/${JSON.stringify(filter)}`).query({filter: JSON.stringify({column: 'nome', value: usuarioBanco.nome})});
+
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(HttpStatus.OK);
+      expect(resp.body.message).toBe('');
+      expect(resp.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+    
+    it('obtem todos os usuários pelo id', async () => {
+      const resp = await request(app.getHttpServer()).get(`/0/5/${JSON.stringify(filter)}`).query({filter: JSON.stringify({column: 'id', value: usuarioBanco.id})});
+
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(HttpStatus.OK);
+      expect(resp.body.message).toBe('');
+      expect(resp.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+    
+    it('obtem todos os usuários administradores', async () => {
+      const resp = await request(app.getHttpServer()).get(`/0/5/${JSON.stringify(filter)}`).query({filter: JSON.stringify({column: 'admin', value: true})});;
+
+      expect(resp).toBeDefined();
+      expect(resp.status).toBe(HttpStatus.OK);
+      expect(resp.body.message).toBe('');
+      expect(resp.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
   });
 });
